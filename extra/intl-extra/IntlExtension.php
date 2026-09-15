@@ -11,6 +11,7 @@
 
 namespace Twig\Extra\Intl;
 
+use Symfony\Component\Intl\Collator;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Intl\Currencies;
 use Symfony\Component\Intl\Exception\MissingResourceException;
@@ -186,11 +187,13 @@ final class IntlExtension extends AbstractExtension
     private $listFormatters = [];
     private $dateFormatterPrototype;
     private $numberFormatterPrototype;
+    private ?Collator $collator;
 
-    public function __construct(?\IntlDateFormatter $dateFormatterPrototype = null, ?\NumberFormatter $numberFormatterPrototype = null)
+    public function __construct(?\IntlDateFormatter $dateFormatterPrototype = null, ?\NumberFormatter $numberFormatterPrototype = null, ?Collator $collator = null)
     {
         $this->dateFormatterPrototype = $dateFormatterPrototype;
         $this->numberFormatterPrototype = $numberFormatterPrototype;
+        $this->collator = $collator;
     }
 
     public function getFilters(): array
@@ -212,6 +215,7 @@ final class IntlExtension extends AbstractExtension
             new TwigFilter('format_date', [$this, 'formatDate'], ['needs_environment' => true]),
             new TwigFilter('format_time', [$this, 'formatTime'], ['needs_environment' => true]),
             new TwigFilter('format_list', [$this, 'formatList']),
+            new TwigFilter('sort_localized', [$this, 'sortLocalized']),
         ];
     }
 
@@ -637,5 +641,22 @@ final class IntlExtension extends AbstractExtension
         }
 
         return $this->listFormatters[$hash];
+    }
+
+    /**
+     * Sorts an array using locale-aware comparison (ICU Collator).
+     *
+     * @param \Closure(mixed):string|null $arrow A callable that extracts the comparison string from each value
+     */
+    public function sortLocalized(iterable $array, ?\Closure $arrow = null, ?string $locale = null): array
+    {
+        if (!class_exists(Collator::class)) {
+            throw new RuntimeError('The "sort_localized" filter requires "symfony/intl" 8.2 or higher.');
+        }
+
+        $this->collator ??= new Collator();
+        $values = $array instanceof \Traversable ? iterator_to_array($array, false) : $array;
+
+        return $this->collator->sort($values, $arrow, $locale);
     }
 }

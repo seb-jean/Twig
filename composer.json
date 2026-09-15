@@ -33,7 +33,9 @@
         "symfony/phpunit-bridge": "^5.4.9|^6.4|^7.0",
         "psr/container": "^1.0|^2.0",
         "phpstan/phpstan": "^2.0@stable",
-        "php-cs-fixer/shim": "^3.0@stable"
+        "php-cs-fixer/shim": "^3.0@stable",
+        "symfony/intl": "8.2.x-dev",
+        "symfony/translation-contracts": "^3.7@dev"
     },
     "autoload": {
         "files": [
@@ -48,7 +50,9 @@
     },
     "autoload-dev": {
         "psr-4" : {
-            "Twig\\Tests\\" : "tests/"
+            "Twig\\Tests\\" : "tests/",
+            "Twig\\Extra\\Intl\\" : "extra/intl-extra/",
+            "Twig\\Extra\\Intl\\Tests\\" : "extra/intl-extra/Tests/"
         }
     }
 }

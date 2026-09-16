@@ -242,4 +242,85 @@ class IntlExtensionTest extends TestCase
 
         (new IntlExtension())->formatList($strings, locale: 'en');
     }
+
+    public function testSortLocalized(): void
+    {
+        $ext = new IntlExtension();
+
+        $this->assertSame(
+            ['Benoît', 'Éric', 'François', 'Jérôme'],
+            $ext->sortLocalized(['François', 'Éric', 'Jérôme', 'Benoît'], locale: 'fr_FR')
+        );
+    }
+
+    public function testSortLocalizedWithAccentedVariants(): void
+    {
+        $ext = new IntlExtension();
+
+        $this->assertSame(
+            ['cote', 'coté', 'côte', 'côté'],
+            $ext->sortLocalized(['côté', 'cote', 'côte', 'coté'], locale: 'fr_FR')
+        );
+    }
+
+    public function testSortLocalizedWithArrow(): void
+    {
+        $ext = new IntlExtension();
+
+        $items = [
+            ['city' => 'Zürich'],
+            ['city' => 'Ärau'],
+            ['city' => 'Bern'],
+        ];
+
+        $sorted = $ext->sortLocalized($items, static fn (array $item): string => $item['city'], 'de_CH');
+
+        $this->assertSame('Ärau', $sorted[0]['city']);
+        $this->assertSame('Bern', $sorted[1]['city']);
+        $this->assertSame('Zürich', $sorted[2]['city']);
+    }
+
+    public function testSortLocalizedPreservesStableOrder(): void
+    {
+        $ext = new IntlExtension();
+
+        $paris1 = ['city' => 'Paris', 'zip' => '75001'];
+        $paris2 = ['city' => 'Paris', 'zip' => '69001'];
+        $marseille = ['city' => 'Marseille', 'zip' => '13001'];
+
+        $sorted = $ext->sortLocalized([$paris1, $paris2, $marseille], static fn (array $item): string => $item['city'], 'fr_FR');
+
+        $this->assertSame([$marseille, $paris1, $paris2], $sorted);
+    }
+
+    public function testSortLocalizedWithTraversable(): void
+    {
+        $ext = new IntlExtension();
+
+        $generator = static function (): \Generator {
+            yield 'Zürich';
+            yield 'Ärau';
+            yield 'Bern';
+        };
+
+        $this->assertSame(
+            ['Ärau', 'Bern', 'Zürich'],
+            $ext->sortLocalized($generator(), locale: 'de_CH')
+        );
+    }
+
+    public function testSortLocalizedDropsAssociativeKeys(): void
+    {
+        $ext = new IntlExtension();
+
+        $this->assertSame(
+            ['Ärau', 'Bern', 'Zürich'],
+            $ext->sortLocalized(['z' => 'Zürich', 'a' => 'Ärau', 'b' => 'Bern'], locale: 'de_CH')
+        );
+    }
+
+    public function testSortLocalizedEmpty(): void
+    {
+        $this->assertSame([], (new IntlExtension())->sortLocalized([]));
+    }
 }

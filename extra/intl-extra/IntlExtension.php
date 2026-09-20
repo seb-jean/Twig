@@ -184,6 +184,7 @@ final class IntlExtension extends AbstractExtension
     private $dateFormatters = [];
     private $numberFormatters = [];
     private $listFormatters = [];
+    private array $collators = [];
     private $dateFormatterPrototype;
     private $numberFormatterPrototype;
 
@@ -212,6 +213,7 @@ final class IntlExtension extends AbstractExtension
             new TwigFilter('format_date', [$this, 'formatDate'], ['needs_environment' => true]),
             new TwigFilter('format_time', [$this, 'formatTime'], ['needs_environment' => true]),
             new TwigFilter('format_list', [$this, 'formatList']),
+            new TwigFilter('sort_localized', [$this, 'sortLocalized']),
         ];
     }
 
@@ -457,6 +459,67 @@ final class IntlExtension extends AbstractExtension
         }
 
         return $ret;
+    }
+
+    /**
+     * Sorts a sequence or a mapping by comparing strings the way the locale does.
+     *
+     * Unlike the arrow of the "sort" filter, which compares two values, the arrow
+     * here returns the string to sort a value on, as the collator does the comparing.
+     *
+     * @param \Closure(mixed): string|null $arrow
+     */
+    public function sortLocalized(iterable $values, ?\Closure $arrow = null, ?string $locale = null): array
+    {
+        if (!class_exists('Collator')) {
+            throw new RuntimeError('The "sort_localized" filter requires the "intl" PHP extension to be installed and enabled.');
+        }
+
+        if ($values instanceof \Traversable) {
+            $values = iterator_to_array($values);
+        }
+
+        if (!$values) {
+            return $values;
+        }
+
+        $collator = $this->createCollator($locale);
+
+        // The keys are kept, as the "sort" filter does, and the comparison strings
+        // are computed once instead of on every comparison
+        $keys = [];
+        foreach ($values as $key => $value) {
+            if (null !== $arrow) {
+                $keys[$key] = $arrow($value);
+
+                continue;
+            }
+
+            if (!\is_scalar($value) && !$value instanceof \Stringable) {
+                throw new RuntimeError(\sprintf('The "sort_localized" filter expects a sequence or a mapping of strings, got "%s"; pass an arrow function returning the string to sort a value on.', get_debug_type($value)));
+            }
+
+            $keys[$key] = (string) $value;
+        }
+
+        uasort($keys, static fn (string $a, string $b): int => $collator->compare($a, $b) ?: 0);
+
+        return array_replace($keys, $values);
+    }
+
+    private function createCollator(?string $locale): \Collator
+    {
+        $locale ??= \Locale::getDefault();
+
+        if (!isset($this->collators[$locale])) {
+            try {
+                $this->collators[$locale] = new \Collator($locale);
+            } catch (\IntlException $e) {
+                throw new RuntimeError(\sprintf('Unable to create a collator for locale "%s": "%s".', $locale, $e->getMessage()), -1, null, $e);
+            }
+        }
+
+        return $this->collators[$locale];
     }
 
     private function createDateFormatter(?string $locale, ?string $dateFormat, ?string $timeFormat, string $pattern, ?\DateTimeZone $timezone, ?string $calendar): \IntlDateFormatter

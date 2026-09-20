@@ -242,4 +242,123 @@ class IntlExtensionTest extends TestCase
 
         (new IntlExtension())->formatList($strings, locale: 'en');
     }
+
+    public function testSortLocalized(): void
+    {
+        $ext = new IntlExtension();
+
+        // "Éric" sorts between "Benoît" and "François" in French, while a byte
+        // comparison would put it last
+        $this->assertSame(
+            ['Benoît', 'Éric', 'François', 'Jérôme'],
+            array_values($ext->sortLocalized(['François', 'Éric', 'Jérôme', 'Benoît'], locale: 'fr'))
+        );
+    }
+
+    public function testSortLocalizedOrdersAccentedVariantsAfterTheirBase(): void
+    {
+        $ext = new IntlExtension();
+
+        $this->assertSame(
+            ['cote', 'coté', 'côte', 'côté'],
+            array_values($ext->sortLocalized(['côté', 'cote', 'côte', 'coté'], locale: 'fr'))
+        );
+    }
+
+    public function testSortLocalizedDependsOnTheLocale(): void
+    {
+        $ext = new IntlExtension();
+        $values = ['Ähre', 'Alt', 'Zeder'];
+
+        // German sorts "Ä" with "A", Swedish sorts it after "Z"
+        $this->assertSame(['Ähre', 'Alt', 'Zeder'], array_values($ext->sortLocalized($values, locale: 'de')));
+        $this->assertSame(['Alt', 'Zeder', 'Ähre'], array_values($ext->sortLocalized($values, locale: 'sv')));
+    }
+
+    public function testSortLocalizedKeepsTheKeys(): void
+    {
+        $ext = new IntlExtension();
+
+        $this->assertSame(
+            ['a' => 'Ärau', 'b' => 'Bern', 'z' => 'Zürich'],
+            $ext->sortLocalized(['z' => 'Zürich', 'a' => 'Ärau', 'b' => 'Bern'], locale: 'de')
+        );
+    }
+
+    public function testSortLocalizedWithAnArrow(): void
+    {
+        $ext = new IntlExtension();
+
+        $cities = [
+            ['city' => 'Zürich'],
+            ['city' => 'Ärau'],
+            ['city' => 'Bern'],
+        ];
+
+        $this->assertSame(
+            ['Ärau', 'Bern', 'Zürich'],
+            array_column($ext->sortLocalized($cities, static fn (array $city): string => $city['city'], 'de'), 'city')
+        );
+    }
+
+    public function testSortLocalizedIsStable(): void
+    {
+        $ext = new IntlExtension();
+
+        $lyon = ['city' => 'Paris', 'zip' => '69001'];
+        $paris = ['city' => 'Paris', 'zip' => '75001'];
+        $marseille = ['city' => 'Marseille', 'zip' => '13001'];
+
+        $this->assertSame(
+            [$marseille, $lyon, $paris],
+            array_values($ext->sortLocalized([$lyon, $paris, $marseille], static fn (array $city): string => $city['city'], 'fr'))
+        );
+    }
+
+    public function testSortLocalizedWithATraversable(): void
+    {
+        $ext = new IntlExtension();
+
+        $cities = static function (): \Generator {
+            yield 'Zürich';
+            yield 'Ärau';
+            yield 'Bern';
+        };
+
+        $this->assertSame(
+            ['Ärau', 'Bern', 'Zürich'],
+            array_values($ext->sortLocalized($cities(), locale: 'de'))
+        );
+    }
+
+    public function testSortLocalizedWithAnEmptyList(): void
+    {
+        $this->assertSame([], (new IntlExtension())->sortLocalized([]));
+    }
+
+    public function testSortLocalizedWithValuesThatAreNotStrings(): void
+    {
+        $this->expectException(RuntimeError::class);
+        $this->expectExceptionMessage('The "sort_localized" filter expects a sequence or a mapping of strings, got "stdClass"; pass an arrow function returning the string to sort a value on.');
+
+        (new IntlExtension())->sortLocalized([new \stdClass()]);
+    }
+
+    public function testSortLocalizedWithAnUnknownLocale(): void
+    {
+        $this->expectException(RuntimeError::class);
+        $this->expectExceptionMessage('Unable to create a collator for locale "not a locale":');
+
+        (new IntlExtension())->sortLocalized(['a', 'b'], locale: 'not a locale');
+    }
+
+    public function testSortLocalizedFromATemplate(): void
+    {
+        $twig = new Environment(new ArrayLoader([
+            'index' => "{{ cities|sort_localized(locale: 'de')|join(', ') }}",
+        ]));
+        $twig->addExtension(new IntlExtension());
+
+        $this->assertSame('Ärau, Bern, Zürich', $twig->render('index', ['cities' => ['Zürich', 'Ärau', 'Bern']]));
+    }
 }

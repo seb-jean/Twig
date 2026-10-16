@@ -1,5 +1,8 @@
 # 3.31.0 (2026-XX-XX)
 
+ * Add the `sort_localized` filter to `twig/intl-extra` to sort values in the alphabetical order of a locale
+ * Fix reading an attribute through its getter initializing a lazy object when the property is not public
+ * Fix compiled float literals depending on the `serialize_precision` ini setting
  * Fix the `loop` variable being undefined when used in the sequence of a nested `for` tag
  * Reject a deprecated `Template` instance created by another environment in `Environment::resolveTemplate()`
  * Fix a compilation error inside an `autoescape` tag leaking its escaping strategy into the next compiled template
@@ -11,6 +14,11 @@
  * Add a third argument to `FilesystemLoader::addPath()` and `FilesystemLoader::prependPath()` to skip checking that the directory exists
  * Speed up traversing nodes with node visitors
  * Speed up loading compiled templates that OPcache already holds
+ * Speed up applying `html_cva()` recipes that resolve to classes already seen
+ * Fix a class marked safe for `html_attr` not being considered safe in `html` and `html_attr_relaxed` contexts
+ * Add a way to mark a `Twig\Markup` instance as safe for some escaping strategies only
+ * Make `Environment::getExtension()` return the runtime of an extension class registered with `AttributeExtension`
+ * Make `Environment::getRuntime()` fall back to the registered extension of the same class
 
 # 3.30.0 (2026-09-25)
 
